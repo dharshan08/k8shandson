@@ -481,8 +481,108 @@ nginx.192.168.49.2.nip.io​ to ​192.168.49.2​ the IP of minikube. Note that
 need to edit the Ingress rule manifest if the IP of your minikube is different.
 Once the rule is implemented by the controller (could take O(10) s), open your browser at nginx.192.168.49.2.nip.io​ and enjoy nginx​.
 
-## Daemonset, Scheduling
+## Namespace
+Kubernetes namespaces help different projects, teams, or customers to share a Kubernetes cluster. Namespaces provide a scope for names of resources. Names of resources need to be unique within a namespace, but not across namespaces. Namespaces are a way to divide cluster resources between multiple users
+```yaml
+# myns.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+```
+```sh
+kubectl create -f myns.yaml
+# Alternatively you can just use a command.
+kubectl create namespace monitoring
+```
 
+### Config and namespaces.
+[Config Context](https://kubernetes.io/docs/tasks/administer-cluster/namespaces-walkthrough/)
+
+## Daemonset
+A DaemonSet ensures that all (or some) Nodes run a copy of a Pod. As nodes are added to the cluster, Pods are added to them. As nodes are removed from the cluster, those Pods are garbage collected. Deleting a DaemonSet will clean up the Pods it created.
+
+```yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app.kubernetes.io/component: exporter
+    app.kubernetes.io/name: node-exporter
+  name: node-exporter
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: exporter
+      app.kubernetes.io/name: node-exporter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: exporter
+        app.kubernetes.io/name: node-exporter
+    spec:
+      containers:
+      - args:
+        - --path.sysfs=/host/sys
+        - --path.rootfs=/host/root
+        - --no-collector.wifi
+        - --no-collector.hwmon
+        - --collector.filesystem.ignored-mount-points=^/(dev|proc|sys|var/lib/docker/.+|var/lib/kubelet/pods/.+)($|/)
+        - --collector.netclass.ignored-devices=^(veth.*)$
+        name: node-exporter
+        image: prom/node-exporter
+        ports:
+          - containerPort: 9100
+            protocol: TCP
+        resources:
+          limits:
+            cpu: 250m
+            memory: 180Mi
+          requests:
+            cpu: 102m
+            memory: 180Mi
+        volumeMounts:
+        - mountPath: /host/sys
+          mountPropagation: HostToContainer
+          name: sys
+          readOnly: true
+        - mountPath: /host/root
+          mountPropagation: HostToContainer
+          name: root
+          readOnly: true
+      volumes:
+      - hostPath:
+          path: /sys
+        name: sys
+      - hostPath:
+          path: /
+        name: root
+```
+
+## Scheduling
+You can specify on which node your pod should be scheduled.
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: redis-anfield
+spec:
+  containers:
+  - name: redis
+    image: redis
+  nodeSelector:
+    motto: ynwa
+```
+Check the pod and make necessary change on the node:
+```sh
+kubectl describe pod redis-anfield
+kubectl label node minikube motto=ynwa
+```
+
+### Multiple Scheduler
+[See the exercise here](https://kubernetes.io/docs/tutorials/clusters/multiple-schedulers/)
 
 ## Custom Resources
 
