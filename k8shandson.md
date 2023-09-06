@@ -234,6 +234,151 @@ kubectl apply -f deployment.yaml
 kubectl get -f deployment.yaml -o yaml
 ```
 
+### Scaling the Deployments
+
+```sh
+# Create the deployment
+kubectl create deployment ghost --image ghost
+#Scale it
+kubectl scale deployments ghost --replicas=5
+# Check for labels
+kubectl get deployment ghost -o json | jq -r .spec.selector
+# you can remove a pod from deployment from removing the label (ex: 'app')
+kubectl label pods ghost-943298627-38761 app-
+# Rolling update
+kubectl set image deployment/ghost ghost=ghost:0.9
+# Check the history
+kubectl rollout history deployment/ghost
+```
+
+### Volumes
+
+We will create a single Pod manifest which contains two containers and one volume. Mount the volume in different paths in each of the containers and use *kubectl exec​* to touch a file. Read the file from the other container. This will show you how to share data between containers in a Pod using a volume.
+Create volumes.yaml
+```sh
+apiVersion: v1
+kind: Pod
+metadata:
+  name: vol
+  labels:
+    app: vol
+spec:
+  containers:
+  - image: busybox
+    command:
+      - sleep
+      - "3600"
+    volumeMounts:
+    - mountPath: /busy
+      name: test
+    imagePullPolicy: IfNotPresent
+    name: busy
+  - image: busybox
+    command:
+      - sleep
+      - "3600"
+    volumeMounts:
+    - mountPath: /box
+      name: test
+    imagePullPolicy: IfNotPresent
+    name: box
+  restartPolicy: Always
+  volumes:
+  - name: test
+    emptyDir: {}
+```
+
+```sh
+kubectl create -f volumes.yaml
+```
+
+```sh
+kubectl exec -ti vol -c busy -- touch /busy/myfile
+kubectl exec -ti vol -c box -- ls -l /box
+```
+
+### Secrets and ConfigMaps
+It may not be a good idea to put password directly in the yaml file
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mysql
+spec:
+  containers:
+  - image: mysql:5.5
+    env:
+    - name: MYSQL_ROOT_PASSWORD
+      value: root
+    imagePullPolicy: IfNotPresent
+    name: mysql
+  restartPolicy: Always
+```
+this is sub-optimal, as it shows the value of the password in the actual manifest. It would be better to create a secret and bind that secret to the Pod at runtime. We can do this. First create a secret by hand with ​kubectl
+
+```sh
+kubectl create secret generic mysql --from-literal=password=root
+```
+You can then use this secret inside a Pod like
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mysql
+spec:
+  containers:
+  - image: mysql:5.5
+    env:
+    - name: MYSQL_ROOT_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: mysql
+          key: password
+    imagePullPolicy: IfNotPresent
+    name: mysql
+  restartPolicy: Always
+```
+Then you can test it
+```sh
+kubectl exec -ti mysql -- mysql -uroot -proot
+```
+
+Using the ConfigMaps resource, we can share files between containers and load configurations inside containers. A ConfigMap can be mounted as a volume inside a Pod, just like a regular volume. There are additional ways to refer to a ConfigMap, especially using ​ ​environment variables​. Create a ConfigMap with ​kubectl​ and mount it inside a Pod. Then, get inside the container and verify that the file is there.
+
+Create a ConfigMap with ​kubectl​ and mount it inside a Pod. Then, get inside the container and verify that the file is there.
+```sh
+kubectl create configmap map --from-file=<ANY FILE>
+kubectl get configmaps
+```
+Use the created configMap in the pod manifest: configmap.yaml
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: configmap-test
+spec:
+  containers:
+  - image: busybox
+    command:
+      - sleep
+      - "3600"
+    volumeMounts:
+    - mountPath: /config
+      name: map
+    name: busy
+  volumes:
+    - name: map
+      configMap:
+        name: map
+```
+Now, test it
+
+```sh
+kubectl create -f configmap.yaml
+kubectl exec -ti configmap-test -- ls /config
+```
+
 
 ## Service
 
@@ -310,6 +455,67 @@ Then try to curl
 
 1 should fail and 3 and 2 should work. The port of Nodeport with clusterIP will not work.
 
+#### One more exercise
+First the pod
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+  namespace: default
+  labels:
+    app: nginx
+spec:
+  containers:
+  - image: nginx
+    ports:
+      - containerPort: 80
+    imagePullPolicy: IfNotPresent
+    name: nginx
+```
+Next the nodeport service
+```sh
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+spec:
+  ports:
+    - port: 80
+  type: NodePort
+  selector:
+    app: nginx
+```
+Check for service and endoints
+```sh
+kubectl get svc
+kubectl get endpoints
+```
+Reach the service with your browser by typing minikube service nginx​.
+
+Finally, verify that DNS is working. Creating a ​sleeping ​busybox container, and ​exec into it to run nslookup​:
+
+```yaml
+#busybox.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: busybox
+  namespace: default
+spec:
+  containers:
+  - image: busybox
+    command:
+      - sleep
+      - "3600"
+    imagePullPolicy: IfNotPresent
+    name: busybox
+  restartPolicy: Always
+```
+```sh
+kubectl create -f busybox.yaml
+kubectl exec -ti busybox -- nslookup nginx
+```
 
 ## Ingress
 [Online Exercise](https://kubernetes.io/docs/tasks/access-application-cluster/ingress-minikube/)
