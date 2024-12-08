@@ -718,7 +718,7 @@ spec:
     run: nginx
 ---
 # Create the ingress resource
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: nginx
@@ -727,9 +727,14 @@ spec:
   - host: nginx.192.168.49.2.nip.io
     http:
       paths:
-      - backend:
-          serviceName: nginx
-          servicePort: 80
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: nginx
+            port:
+              number: 80
+
 ```
 
 This Ingress rule is used by the Ingress controller (started by the ​backend.yaml​ manifest) to re-configure the nginx proxy running on the head node (in our case, minikube​). The rule will proxy requests for host ​nginx.192.168.49.2.nip.io​ to the internal service called nginx​.We use the ​nip.io​ service. It is a wildcard DNS service that is very handy for testing. It will resolve
