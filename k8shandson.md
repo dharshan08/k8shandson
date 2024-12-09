@@ -547,7 +547,7 @@ $ minikube addons configure metallb
     ▪ Using image quay.io/metallb/speaker:v0.9.6
 ✅  metallb was successfully configured
 # Check the applied settings
-$ kubectl get configmap/config -n metallb-system -o yam
+$ kubectl get configmap/config -n metallb-system -o yaml
 ```
 
 ```sh
