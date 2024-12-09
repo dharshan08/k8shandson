@@ -201,7 +201,7 @@ You can *delete*, *get* or *replace* too.
 When using declarative object configuration, a user operates on object configuration files stored locally, however the user does not define the operations to be taken on the files. Create, update, and delete operations are automatically detected per-object by kubectl. This enables working on directories, where different operations might be needed for different objects.
 This sets the kubectl.kubernetes.io/last-applied-configuration: '{...}' annotation on each object. The annotation contains the contents of the object configuration file that was used to create the object.
 ```sh
-kubectl apply -f <directory>
+kubectl apply -f <file>
 ```
 
 ```yaml
