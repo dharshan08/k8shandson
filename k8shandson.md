@@ -195,7 +195,7 @@ spec:
 ```sh
 kubectl create -f redis.yaml
 ```
-You can *delete*, *get* or *replace* too.
+You can *delete*, or *get*.
 
 ### Declarative object configuration
 When using declarative object configuration, a user operates on object configuration files stored locally, however the user does not define the operations to be taken on the files. Create, update, and delete operations are automatically detected per-object by kubectl. This enables working on directories, where different operations might be needed for different objects.
